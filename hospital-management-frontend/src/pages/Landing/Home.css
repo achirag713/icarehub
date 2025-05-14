@@ -1,0 +1,214 @@
+.hero {
+  min-height: 100vh; /* Make hero section take up the full viewport height */
+  background-color: var(--light-color);
+  padding: 5rem 0; /* Increased padding */
+  display: flex;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero .container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 3rem; /* Added gap for better spacing */
+}
+
+.hero-content {
+  flex: 1.2; /* Give slightly more space to content */
+  padding-right: 2rem;
+}
+
+.hero h1 {
+  font-size: 3rem;
+  color: #005792; /* Match the services section background color */
+  margin-bottom: 1.5rem;
+  line-height: 1.2;
+}
+
+.hero p {
+  font-size: 1.3rem;
+  margin-bottom: 2.5rem;
+  color: #034971; /* Slightly darker blue to match the services theme */
+  line-height: 1.6;
+}
+
+.hero-buttons {
+  display: flex;
+  gap: 1.5rem; /* Increased gap */
+}
+
+.hero-buttons .btn {
+  padding: 0.8rem 1.8rem; /* Larger buttons */
+  font-size: 1.1rem; /* Larger text */
+}
+
+.hero-image {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hero-image img {
+  width: 350px;
+  height: 350px;
+  border-radius: var(--radius-lg);
+  object-fit: contain;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.08));
+}
+
+/* Services Section */
+.services {
+  min-height: 100vh; /* Make services section take up the full viewport height */
+  background-color: white; /* Changed from blue to white */
+  position: relative;
+  overflow: hidden;
+  color: #005792; /* Changed text color to blue */
+  display: flex;
+  align-items: center;
+}
+
+.section-title {
+  text-align: center;
+  margin-bottom: 3rem; /* Increased margin */
+  color: #005792; /* Changed from white to blue */
+  position: relative;
+  font-size: 2.5rem; /* Increased font size */
+  font-weight: 700;
+}
+
+.services-grid {
+  display: flex; /* Change to flex for a single row */
+  flex-direction: row; /* Ensure cards are in a row */
+  justify-content: center; /* Center the cards */
+  gap: 2rem; /* Space between cards */
+  flex-wrap: nowrap; /* Prevent wrapping */
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  overflow-x: auto; /* Allow horizontal scrolling on small screens */
+}
+
+.service-card {
+  background-color: #005792; /* Changed from white to blue */
+  padding: 2rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(0, 87, 146, 0.3);
+  color: white; /* Changed from blue to white */
+  min-width: 220px; /* Set minimum width for each card */
+  flex: 1; /* Allow even distribution */
+}
+
+.service-card:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--shadow-lg);
+  background-color: #034971; /* Darker blue on hover */
+  border-color: #034971;
+}
+
+.service-icon {
+  font-size: 3.5rem;
+  margin-bottom: var(--space-4);
+  color: white; /* Changed from blue to white */
+}
+
+.service-card h3 {
+  font-size: 1.5rem;
+  margin-bottom: var(--space-3);
+  color: white; /* Changed from blue to white */
+}
+
+.service-card p {
+  color: rgba(255, 255, 255, 0.9); /* Changed to white with slight transparency */
+  margin-bottom: 0;
+}
+
+/* About Section */
+.about {
+  min-height: 100vh; /* Make about section take up the full viewport height */
+  padding: 4rem 0;
+  background-color: var(--light-color);
+  display: flex;
+  align-items: center;
+}
+
+.about-content {
+  display: flex;
+  flex-direction: row-reverse; /* Reverse the order - image left, text right */
+  align-items: center;
+  gap: 3rem;
+}
+
+.about-text {
+  flex: 1.2; /* Give slightly more space to content */
+}
+
+.about-text h2 {
+  font-size: 2.5rem; /* Increased font size */
+  margin-bottom: 1.5rem; /* Increased margin */
+  line-height: 1.2;
+}
+
+.about-text p {
+  font-size: 1.2rem; /* Increased font size */
+  margin-bottom: 1.5rem; /* Increased margin */
+  line-height: 1.6;
+}
+
+.about-text .btn {
+  padding: 0.8rem 1.8rem; /* Larger button */
+  font-size: 1.1rem; /* Larger text */
+}
+
+.about-image {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.about-image img {
+  width: 350px;
+  height: 350px;
+  border-radius: var(--radius-lg);
+  object-fit: contain;
+  box-shadow: var(--shadow-lg);
+  border: 6px solid white;
+  transition: transform 0.5s ease;
+}
+
+@media (max-width: 768px) {
+  .hero .container,
+  .about-content {
+    flex-direction: column;
+  }
+  
+  .hero-content,
+  .about-text {
+    padding-right: 0;
+    margin-bottom: 2rem;
+  }
+  
+  .hero h1 {
+    font-size: 2.5rem; /* Slightly smaller on mobile */
+  }
+  
+  .hero p {
+    font-size: 1.2rem; /* Slightly smaller on mobile */
+  }
+  
+  .about-text h2 {
+    font-size: 2.2rem; /* Slightly smaller on mobile */
+  }
+  
+  .hero-image img, 
+  .about-image img {
+    width: 300px; /* Slightly smaller on mobile */
+    height: 300px;
+  }
+}

@@ -1,0 +1,98 @@
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+  }
+
+  th {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    font-weight: 600;
+    color: var(--dark-color);
+    border-bottom: 2px solid var(--border-color);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--dark-color);
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  .clickable {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+
+  .clickable:hover {
+    background-color: #f8f9fa;
+  }
+
+  .selected {
+    background-color: rgba(0, 123, 255, 0.05);
+  }
+
+  .checkbox-column {
+    width: 40px;
+    text-align: center;
+    padding: 0.5rem;
+  }
+
+  .checkbox-column input {
+    cursor: pointer;
+  }
+
+  .loading,
+  .empty {
+    text-align: center;
+    padding: 2rem !important;
+    color: #666;
+  }
+
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .loading-spinner {
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .table-container {
+      border-radius: 0;
+    }
+
+    td,
+    th {
+      padding: 0.75rem;
+    }
+  }

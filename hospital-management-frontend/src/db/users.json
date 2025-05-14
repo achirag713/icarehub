@@ -1,0 +1,29 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "name": "Admin User",
+      "email": "admin@hospital.com",
+      "password": "admin123",
+      "role": "admin"
+    },
+    {
+      "id": 2,
+      "name": "Dr. John Smith",
+      "email": "doctor@hospital.com",
+      "password": "doctor123",
+      "role": "doctor",
+      "specialization": "Cardiology",
+      "experience": "10 years"
+    },
+    {
+      "id": 3,
+      "name": "Patient User",
+      "email": "patient@example.com",
+      "password": "patient123",
+      "role": "patient",
+      "age": 35,
+      "bloodGroup": "A+"
+    }
+  ]
+}

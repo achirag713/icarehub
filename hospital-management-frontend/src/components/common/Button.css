@@ -1,0 +1,136 @@
+/* Button Component Styles */
+
+.btn {
+  display: inline-block;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+/* Button Variants */
+.btn-primary {
+  background-color: #1a73e8;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #0d5bca;
+}
+
+.btn-secondary {
+  background-color: #f1f3f4;
+  color: #202124;
+}
+
+.btn-secondary:hover {
+  background-color: #dadce0;
+}
+
+.btn-success {
+  background-color: #34a853;
+  color: white;
+}
+
+.btn-success:hover {
+  background-color: #2d8e47;
+}
+
+.btn-danger {
+  background-color: #ea4335;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #d33426;
+}
+
+.btn-warning {
+  background-color: #fbbc05;
+  color: white;
+}
+
+.btn-warning:hover {
+  background-color: #e0a800;
+}
+
+/* Button Sizes */
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 14px;
+}
+
+.btn-lg {
+  padding: 12px 24px;
+  font-size: 18px;
+}
+
+/* Button States */
+.btn-disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Full Width Button */
+.btn-block {
+  display: block;
+  width: 100%;
+}
+
+/* Outline Style Buttons */
+.btn-outline-primary {
+  background-color: transparent;
+  color: #1a73e8;
+  border: 1px solid #1a73e8;
+}
+
+.btn-outline-primary:hover {
+  background-color: #1a73e8;
+  color: white;
+}
+
+/* Icon Button */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon i, .btn-icon svg {
+  margin-right: 5px;
+}
+
+/* Button with loading state */
+.btn-loading {
+  position: relative;
+  pointer-events: none;
+}
+
+.btn-loading:after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: auto;
+  border: 3px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: button-loading-spinner 1s ease infinite;
+}
+
+@keyframes button-loading-spinner {
+  from {
+    transform: rotate(0turn);
+  }
+  to {
+    transform: rotate(1turn);
+  }
+}
