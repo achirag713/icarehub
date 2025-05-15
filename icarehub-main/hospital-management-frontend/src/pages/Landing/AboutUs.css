@@ -1,0 +1,80 @@
+.about-us-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.about-us-container {
+  flex: 1;
+  padding: 2rem 0;
+  background-color: var(--light-color-alt);
+}
+
+.about-us-hero {
+  text-align: center;
+  padding: 3rem 0;
+  margin-bottom: 2rem;
+  background-color: #005792;
+  color: white;
+  border-radius: var(--radius-lg);
+}
+
+.about-us-hero h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  color: white;
+}
+
+.about-us-hero .lead {
+  font-size: 1.25rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.about-us-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+  gap: 2rem;
+  padding: 1rem;
+}
+
+.about-us-section {
+  background-color: white;
+  padding: 2rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.about-us-section h2 {
+  color: #005792;
+  margin-bottom: 1rem;
+  font-size: 1.75rem;
+}
+
+.about-us-section p {
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.about-us-section ul {
+  padding-left: 1.5rem;
+}
+
+.about-us-section li {
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+  .about-us-content {
+    grid-template-columns: 1fr;
+  }
+  
+  .about-us-hero {
+    padding: 2rem 1rem;
+  }
+  
+  .about-us-hero h1 {
+    font-size: 2rem;
+  }
+}

@@ -1,0 +1,535 @@
+.book-appointments-page {
+    padding: 1rem 0;
+  }
+  
+  .page-header {
+    margin-bottom: 2rem;
+  }
+  
+  .page-header h1 {
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+  }
+  
+  .booking-container {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+  }
+  
+  /* Weekend notice styling */
+  .weekend-notice {
+    margin-bottom: 15px;
+    padding: 8px 12px;
+    background-color: #fff3cd;
+    border: 1px solid #ffeeba;
+    border-radius: 4px;
+    color: #856404;
+    text-align: center;
+  }
+  
+  .weekend-notice-text {
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  
+  /* Timezone notice styling */
+  .timezone-notice {
+    margin-bottom: 15px;
+    padding: 8px 12px;
+    background-color: #e8f4fd;
+    border: 1px solid #b8daff;
+    border-radius: 4px;
+    color: #0c5460;
+    text-align: center;
+  }
+  
+  .timezone-notice-text {
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  
+  .booking-steps {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2rem;
+    background-color: #f9f9f9;
+    border-bottom: 1px solid var(--border-color);
+  }
+  
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  .step-number {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: white;
+    transition: background-color 0.3s ease;
+  }
+  
+  .step.active .step-number {
+    background-color: var(--primary-color);
+  }
+  
+  .step-text {
+    font-weight: 500;
+    color: #666;
+    transition: color 0.3s ease;
+  }
+  
+  .step.active .step-text {
+    color: var(--primary-color);
+  }
+  
+  .step-connector {
+    flex: 1;
+    height: 2px;
+    background-color: #e0e0e0;
+    margin: 0 1rem;
+  }
+  
+  .booking-form {
+    padding: 2rem;
+  }
+  
+  .step-content h2 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    color: var(--primary-color);
+  }
+  
+  .doctors-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  
+  .doctor-card {
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .doctor-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .doctor-card.selected {
+    border-color: var(--primary-color);
+    background-color: rgba(0, 119, 182, 0.05);
+  }
+  
+  .doctor-image {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  
+  .doctor-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .doctor-info {
+    flex: 1;
+  }
+  
+  .doctor-info h3 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1.1rem;
+  }
+  
+  .specialization {
+    color: #666;
+    font-size: 0.9rem;
+    margin: 0 0 0.5rem 0;
+  }
+  
+  .fee {
+    color: var(--primary-color);
+    font-weight: 600;
+    margin: 0;
+  }
+  
+  .doctor-selected {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+  }
+  
+  .doctor-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    overflow: hidden;
+  }
+  
+  .doctor-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .doctor-details h3 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1rem;
+  }
+  
+  .doctor-details p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #666;
+  }
+  
+  .date-selection, .time-selection {
+    margin-bottom: 1.5rem;
+  }
+  
+  .date-selection h3, .time-selection h3 {
+    margin-bottom: 1rem;
+    font-size: 1rem;
+  }
+  
+  .date-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.75rem;
+  }
+  
+  .date-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  .date-btn:hover {
+    border-color: var(--primary-color);
+  }
+  
+  .date-btn.selected {
+    border-color: var(--primary-color);
+    background-color: var(--primary-color);
+    color: white;
+  }
+  
+  .day {
+    font-size: 0.8rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .date {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  
+  .month {
+    font-size: 0.8rem;
+  }
+  
+  .time-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.75rem;
+  }
+  
+  .time-btn {
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  .time-btn:hover {
+    border-color: var(--primary-color);
+  }
+  
+  .time-btn.selected {
+    border-color: var(--primary-color);
+    background-color: var(--primary-color);
+    color: white;
+  }
+  
+  .appointment-summary {
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .summary-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+  
+  .summary-item:last-child {
+    margin-bottom: 0;
+  }
+  
+  .label {
+    font-weight: 600;
+    color: #666;
+  }
+  
+  .value {
+    color: var(--dark-color);
+  }
+  
+  .form-group {
+    margin-bottom: 1.5rem;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+  
+  .form-group select, .form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+  }
+  
+  .payment-info {
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+    color: #666;
+  }
+  
+  .step-buttons {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  
+  .btn-next, .btn-back, .btn-confirm {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .btn-next {
+    background-color: var(--primary-color);
+    color: white;
+  }
+  
+  .btn-next:hover {
+    background-color: var(--secondary-color);
+  }
+  
+  .btn-next:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+  }
+  
+  .btn-back {
+    background-color: #f0f0f0;
+    color: #666;
+  }
+  
+  .btn-back:hover {
+    background-color: #e0e0e0;
+  }
+  
+  .btn-confirm {
+    background-color: var(--success-color);
+    color: white;
+  }
+  
+  .btn-confirm:hover {
+    background-color: #218838;
+  }
+  
+  .btn-confirm:disabled {
+    background-color: #8ab98a;
+    cursor: not-allowed;
+  }
+  
+  .success-message {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    padding: 3rem;
+    text-align: center;
+  }
+  
+  .success-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background-color: var(--success-color);
+    color: white;
+    font-size: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+  }
+  
+  .success-message h2 {
+    color: var(--success-color);
+    margin-bottom: 1rem;
+  }
+  
+  .departments-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  
+  .department-card {
+    background-color: white;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .department-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    transform: translateY(-3px);
+  }
+  
+  .department-card.selected {
+    border-color: var(--primary-color);
+    background-color: rgba(0, 119, 182, 0.05);
+  }
+  
+  .department-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .department-card h3 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+  
+  .error-message {
+    background-color: rgba(255, 99, 71, 0.1);
+    border-left: 4px solid #ff6347;
+    color: #d32f2f;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    border-radius: 0 4px 4px 0;
+  }
+  
+  .error-message p {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+  
+  .time-btn.booked {
+    background-color: #f0f0f0;
+    border-color: #e0e0e0;
+    color: #bbb;
+    cursor: not-allowed;
+    text-decoration: line-through;
+  }
+  
+  .time-btn.booked:hover {
+    border-color: #e0e0e0;
+    transform: none;
+  }
+  
+  .no-doctors-message {
+    text-align: center;
+    padding: 2rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    margin: 1rem 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+  
+  .no-doctors-message p {
+    margin: 0.5rem 0;
+    color: #6c757d;
+  }
+  
+  .no-doctors-message p:first-child {
+    font-weight: bold;
+    color: #343a40;
+    font-size: 1.1rem;
+  }
+  
+  @media (max-width: 768px) {
+    .booking-steps {
+      padding: 1.5rem 1rem;
+      flex-wrap: wrap;
+    }
+    
+    .step {
+      margin-bottom: 1rem;
+    }
+    
+    .step-connector {
+      display: none;
+    }
+    
+    .booking-form {
+      padding: 1.5rem 1rem;
+    }
+    
+    .doctors-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .date-grid, .time-grid {
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    }
+    
+    .step-buttons {
+      flex-direction: column;
+    }
+    
+    .btn-back {
+      order: 2;
+    }
+  }
