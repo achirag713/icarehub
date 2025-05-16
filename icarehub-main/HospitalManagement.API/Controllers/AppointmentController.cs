@@ -3,9 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using HospitalManagement.API.Data;
 using HospitalManagement.API.Models;
+using HospitalManagement.API.Services;
 using System.Security.Claims;
 using Microsoft.Extensions.Logging;
-using HospitalManagement.API.Utilities;
 
 namespace HospitalManagement.API.Controllers
 {
@@ -16,17 +16,25 @@ namespace HospitalManagement.API.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<AppointmentController> _logger;
+        private readonly AppointmentService _appointmentService;
 
-        public AppointmentController(ApplicationDbContext context, ILogger<AppointmentController> logger)
+        public AppointmentController(
+            ApplicationDbContext context, 
+            ILogger<AppointmentController> logger,
+            AppointmentService appointmentService)
         {
             _context = context;
             _logger = logger;
+            _appointmentService = appointmentService;
         }
 
         [HttpGet]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAllAppointments()
         {
+            // Update past appointments status before retrieving
+            await _appointmentService.UpdatePastAppointmentsStatus();
+            
             var appointments = await _context.Appointments
                 .Include(a => a.Doctor)
                     .ThenInclude(d => d.User)
@@ -58,6 +66,9 @@ namespace HospitalManagement.API.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAllAppointmentsAlternative()
         {
+            // Update past appointments status before retrieving
+            await _appointmentService.UpdatePastAppointmentsStatus();
+            
             var appointments = await _context.Appointments
                 .Include(a => a.Doctor)
                     .ThenInclude(d => d.User)
@@ -142,6 +153,9 @@ namespace HospitalManagement.API.Controllers
                 return Unauthorized("User not authenticated");
             }
 
+            // Update past appointments status before retrieving
+            await _appointmentService.UpdatePastAppointmentsStatus();
+
             var userId = int.Parse(userIdClaim);
             var patient = await _context.Patients
                 .FromSqlRaw("SELECT * FROM Patients WHERE UserId = {0}", userId)
@@ -159,7 +173,9 @@ namespace HospitalManagement.API.Controllers
                 .ToListAsync();
 
             return Ok(appointments);
-        }        [Authorize(Roles = "Patient")]
+        }
+        
+        [Authorize(Roles = "Patient")]
         [HttpGet("available-slots/{doctorId}")]
         public async Task<IActionResult> GetAvailableSlots(int doctorId, [FromQuery] DateTime date)
         {
@@ -168,7 +184,9 @@ namespace HospitalManagement.API.Controllers
                 .FirstOrDefaultAsync(d => d.Id == doctorId);
 
             if (doctor == null)
-                return NotFound("Doctor not found");            // Check if the requested date is a weekend (Saturday or Sunday)
+                return NotFound("Doctor not found");
+                
+            // Check if the requested date is a weekend (Saturday or Sunday)
             // Convert to local time for validation
             var localDate = TimeZoneInfo.ConvertTimeFromUtc(
                 date.ToUniversalTime(), 
@@ -207,7 +225,9 @@ namespace HospitalManagement.API.Controllers
             }
 
             return Ok(slots);
-        }        [Authorize(Roles = "Patient")]
+        }
+        
+        [Authorize(Roles = "Patient")]
         [HttpPost]
         public async Task<IActionResult> CreateAppointment([FromBody] CreateAppointmentDto model)
         {
@@ -247,7 +267,7 @@ namespace HospitalManagement.API.Controllers
                 {
                     return NotFound("Doctor not found");
                 }                // Validate appointment date
-                if (model.AppointmentDate < TimeUtility.NowIst())
+                if (model.AppointmentDate < DateTime.UtcNow)
                 {
                     return BadRequest("Cannot book appointments in the past");
                 }
@@ -274,6 +294,22 @@ namespace HospitalManagement.API.Controllers
                 {
                     return BadRequest($"Appointments cannot be booked on weekends. Your selected date ({localAppointmentDate.ToString("dddd, MMMM d, yyyy")}) is a weekend.");
                 }
+
+                // Check if the patient already has an appointment at the same time
+                var patientHasConflict = await _appointmentService.HasPatientConflictingAppointment(
+                    patient.Id, 0, model.AppointmentDate, model.DisplayTime ?? $"{localAppointmentDate.Hour}:{localAppointmentDate.Minute:D2}");
+                if (patientHasConflict)
+                {
+                    return BadRequest("You already have another appointment scheduled at this time. Please select a different time.");
+                }
+
+                // Check if the doctor already has an appointment at the same time
+                var doctorHasConflict = await _appointmentService.HasDoctorConflictingAppointment(
+                    model.DoctorId, 0, model.AppointmentDate, model.DisplayTime ?? $"{localAppointmentDate.Hour}:{localAppointmentDate.Minute:D2}");
+                if (doctorHasConflict)
+                {
+                    return BadRequest("The doctor is unavailable at this time. Please select a different time.");
+                }
                 
                 // IMPORTANT: Even if DisplayTime is set, we still validate the AppointmentDate
                 // This allows us to keep backward compatibility while also supporting the new field
@@ -283,11 +319,11 @@ namespace HospitalManagement.API.Controllers
                     PatientId = patient.Id,
                     DoctorId = doctor.Id,
                     AppointmentDate = model.AppointmentDate,
-                    DisplayTime = model.DisplayTime ?? "12:00 PM", // Use the DisplayTime if provided
+                    DisplayTime = model.DisplayTime ?? $"{localAppointmentDate.Hour}:{localAppointmentDate.Minute:D2}", // Use actual time from the date
                     Reason = model.Reason ?? "General consultation", // Set default reason if null
                     Notes = model.Notes ?? string.Empty,
                     Status = AppointmentStatus.Scheduled,
-                    CreatedAt = TimeUtility.NowIst()
+                    CreatedAt = DateTime.UtcNow
                 };
 
                 _context.Appointments.Add(appointment);
@@ -363,18 +399,55 @@ namespace HospitalManagement.API.Controllers
                 {
                     return BadRequest("Cannot book appointments in the past");
                 }
+                
+                // Get the local time representation for display
+                var localAppointmentDate = TimeZoneInfo.ConvertTimeFromUtc(
+                    model.AppointmentDate.ToUniversalTime(), 
+                    TimeZoneInfo.Local);
+                
+                // If DisplayTime is null, extract it from the appointment date
+                if (string.IsNullOrWhiteSpace(model.DisplayTime))
+                {
+                    model.DisplayTime = localAppointmentDate.ToString("h:mm tt");
+                    _logger.LogInformation($"Setting DisplayTime from appointment date: {model.DisplayTime}");
+                }
+                
+                _logger.LogInformation($"TIME DEBUG: AppointmentDate={model.AppointmentDate:yyyy-MM-dd HH:mm:ss}, " +
+                                     $"LocalAppointmentDate={localAppointmentDate:yyyy-MM-dd HH:mm:ss}, " +
+                                     $"DisplayTime={model.DisplayTime}, " +
+                                     $"Hours={localAppointmentDate.Hour}, " +
+                                     $"Minutes={localAppointmentDate.Minute}");
+                
+                // Check if the patient already has an appointment at the same time
+                var patientHasConflict = await _appointmentService.HasPatientConflictingAppointment(
+                    patient.Id, 0, model.AppointmentDate, model.DisplayTime);
+                if (patientHasConflict)
+                {
+                    return BadRequest("You already have another appointment scheduled at this time. Please select a different time.");
+                }
+
+                // Check if the doctor already has an appointment at the same time
+                var doctorHasConflict = await _appointmentService.HasDoctorConflictingAppointment(
+                    model.DoctorId, 0, model.AppointmentDate, model.DisplayTime);
+                if (doctorHasConflict)
+                {
+                    return BadRequest("The doctor is unavailable at this time. Please select a different time.");
+                }
 
                 var appointment = new Appointment
                 {
                     PatientId = patient.Id,
                     DoctorId = doctor.Id,
-                    AppointmentDate = model.AppointmentDate, // The TimeUtility will handle conversion to IST in ApplicationDbContext
-                    DisplayTime = model.DisplayTime ?? "12:00 PM", // Use the user's selected time for display
+                    AppointmentDate = model.AppointmentDate,
+                    DisplayTime = model.DisplayTime ?? localAppointmentDate.ToString("h:mm tt"), // Proper format h:mm tt
                     Reason = model.Reason ?? "General consultation",
                     Notes = model.Notes ?? string.Empty,
                     Status = AppointmentStatus.Scheduled,
                     CreatedAt = DateTime.UtcNow
                 };
+                
+                _logger.LogInformation($"Creating appointment with AppointmentDate={appointment.AppointmentDate:yyyy-MM-dd HH:mm:ss} " +
+                                     $"and DisplayTime={appointment.DisplayTime}");
 
                 _context.Appointments.Add(appointment);
                 await _context.SaveChangesAsync();
@@ -446,7 +519,9 @@ namespace HospitalManagement.API.Controllers
                 .Include(a => a.Doctor)
                 .Include(a => a.Patient)
                 .FirstOrDefaultAsync(a => a.Id == id);            if (appointment == null)
-                return NotFound();            // Check if the user is authorized to update this appointment
+                return NotFound();
+                
+            // Check if the user is authorized to update this appointment
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
             {
@@ -484,7 +559,9 @@ namespace HospitalManagement.API.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(appointment);
-        }        [HttpDelete("{id}")]
+        }
+        
+        [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteAppointment(int id)
         {
             var appointment = await _context.Appointments
@@ -525,6 +602,179 @@ namespace HospitalManagement.API.Controllers
 
             return NoContent();
         }
+
+        [Authorize(Roles = "Patient")]
+        [HttpPut("{id}/reschedule")]
+        public async Task<IActionResult> RescheduleAppointment(int id, [FromBody] RescheduleAppointmentDto dto)
+        {
+            try
+            {
+                _logger.LogInformation($"Reschedule request for appointment {id}: Date: {dto.AppointmentDate}, DisplayTime: {dto.DisplayTime}");
+                
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized("User not authenticated");
+                }
+
+                if (!int.TryParse(userId, out int parsedUserId))
+                {
+                    return BadRequest("Invalid user ID format");
+                }
+
+                var patient = await _context.Patients.FirstOrDefaultAsync(p => p.UserId == parsedUserId);
+                if (patient == null)
+                {
+                    return NotFound("Patient not found");
+                }
+
+                // Find the existing appointment
+                var appointment = await _context.Appointments
+                    .Include(a => a.Doctor)
+                    .FirstOrDefaultAsync(a => a.Id == id && a.PatientId == patient.Id);
+
+                if (appointment == null)
+                {
+                    return NotFound("Appointment not found or doesn't belong to the current patient");
+                }
+
+                if (appointment.Status != AppointmentStatus.Scheduled)
+                {
+                    return BadRequest("Only scheduled appointments can be rescheduled");
+                }
+
+                // Validate appointment date
+                if (dto.AppointmentDate < DateTime.UtcNow)
+                {
+                    return BadRequest("Cannot reschedule to a past date and time");
+                }
+                
+                // Check if the new time is a weekend
+                var localAppointmentDate = TimeZoneInfo.ConvertTimeFromUtc(
+                    dto.AppointmentDate.ToUniversalTime(), 
+                    TimeZoneInfo.Local);
+                    
+                if (localAppointmentDate.DayOfWeek == DayOfWeek.Saturday || 
+                    localAppointmentDate.DayOfWeek == DayOfWeek.Sunday)
+                {
+                    return BadRequest($"Appointments cannot be scheduled on weekends. Your selected date ({localAppointmentDate.ToString("dddd, MMMM d, yyyy")}) is a weekend.");
+                }
+
+                // Check for conflicts with other appointments
+                var patientHasConflict = await _appointmentService.HasPatientConflictingAppointment(
+                    patient.Id, appointment.Id, dto.AppointmentDate, dto.DisplayTime ?? $"{localAppointmentDate.Hour}:{localAppointmentDate.Minute:D2}");
+                if (patientHasConflict)
+                {
+                    return BadRequest("You already have another appointment scheduled at this time. Please select a different time.");
+                }
+
+                var doctorHasConflict = await _appointmentService.HasDoctorConflictingAppointment(
+                    appointment.DoctorId, appointment.Id, dto.AppointmentDate, dto.DisplayTime ?? $"{localAppointmentDate.Hour}:{localAppointmentDate.Minute:D2}");
+                if (doctorHasConflict)
+                {
+                    return BadRequest("The doctor is unavailable at this time. Please select a different time.");
+                }
+
+                // Update the appointment
+                appointment.AppointmentDate = dto.AppointmentDate;
+                appointment.DisplayTime = dto.DisplayTime ?? $"{localAppointmentDate.Hour}:{localAppointmentDate.Minute:D2}";
+                if (!string.IsNullOrEmpty(dto.Reason))
+                {
+                    appointment.Reason = dto.Reason;
+                }
+                if (!string.IsNullOrEmpty(dto.Notes))
+                {
+                    appointment.Notes = dto.Notes;
+                }
+                appointment.UpdatedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "Appointment rescheduled successfully",
+                    appointment = new
+                    {
+                        id = appointment.Id,
+                        patientId = appointment.PatientId,
+                        doctorId = appointment.DoctorId,
+                        appointmentDate = appointment.AppointmentDate,
+                        displayTime = appointment.DisplayTime,
+                        reason = appointment.Reason,
+                        status = appointment.Status
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error rescheduling appointment {id}");
+                return BadRequest("Failed to reschedule appointment: " + ex.Message);
+            }
+        }
+
+        [Authorize(Roles = "Patient")]
+        [HttpPost("check-availability")]
+        public async Task<IActionResult> CheckAppointmentAvailability([FromBody] CheckAvailabilityDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                {
+                    return BadRequest("Invalid availability check data");
+                }
+                
+                _logger.LogInformation($"Received availability check request: DoctorId={dto.DoctorId}, Date={dto.AppointmentDate}, DisplayTime={dto.DisplayTime}, AppointmentId={dto.AppointmentId}");
+                
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized("User not authenticated");
+                }
+
+                if (!int.TryParse(userId, out int parsedUserId))
+                {
+                    return BadRequest("Invalid user ID format");
+                }
+
+                var patient = await _context.Patients
+                    .FirstOrDefaultAsync(p => p.UserId == parsedUserId);
+
+                if (patient == null)
+                {
+                    return NotFound("Patient not found");
+                }
+
+                // Validate appointment date is not in the past
+                if (dto.AppointmentDate < DateTime.UtcNow)
+                {
+                    _logger.LogWarning($"Appointment date {dto.AppointmentDate} is in the past");
+                    return BadRequest("Cannot book appointments in the past");
+                }
+
+                // Get local time representation for the appointment
+                var localAppointmentDate = TimeZoneInfo.ConvertTimeFromUtc(
+                    dto.AppointmentDate.ToUniversalTime(), 
+                    TimeZoneInfo.Local);
+
+                var (isAvailable, message) = await _appointmentService.CheckAppointmentAvailability(
+                    patient.Id, 
+                    dto.DoctorId, 
+                    dto.AppointmentId, 
+                    dto.AppointmentDate, 
+                    dto.DisplayTime ?? $"{localAppointmentDate.Hour}:{localAppointmentDate.Minute:D2}");
+
+                return Ok(new
+                {
+                    isAvailable,
+                    message
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking appointment availability");
+                return BadRequest("Failed to check appointment availability: " + ex.Message);
+            }
+        }
     }
 
     public class CreateAppointmentDto
@@ -534,9 +784,27 @@ namespace HospitalManagement.API.Controllers
         public required string Reason { get; set; }
         public string? Notes { get; set; }
         public string? DisplayTime { get; set; }
-    }    public class UpdateAppointmentDto
+    }
+
+    public class UpdateAppointmentDto
     {
         public required string Status { get; set; }
         public required string Notes { get; set; }
+    }
+
+    public class RescheduleAppointmentDto
+    {
+        public DateTime AppointmentDate { get; set; }
+        public string DisplayTime { get; set; }
+        public string? Reason { get; set; }
+        public string? Notes { get; set; }
+    }
+
+    public class CheckAvailabilityDto
+    {
+        public int DoctorId { get; set; }
+        public DateTime AppointmentDate { get; set; }
+        public string? DisplayTime { get; set; }
+        public int AppointmentId { get; set; }
     }
 }

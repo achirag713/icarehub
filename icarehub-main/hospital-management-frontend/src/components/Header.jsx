@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import './Header.css'; // Assuming you have a CSS file for styling
+import './Header.css'; 
 
 const Header = () => {
   const { user, logout } = useAuth();

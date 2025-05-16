@@ -10,18 +10,13 @@ const MyBookings = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
-  const [availableDates, setAvailableDates] = useState([]);
-  const [selectedDate, setSelectedDate] = useState('');
-  const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
-  const [selectedTime, setSelectedTime] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [appointments, setAppointments] = useState([]);
-  const [filter, setFilter] = useState('upcoming'); // 'upcoming', 'past', 'all'
+  const [filter, setFilter] = useState('scheduled'); // 'scheduled', 'completed', 'cancelled', 'all'
 
   // Helper function to extract doctor name from various object structures
   const getDoctorName = (doctorObj) => {
@@ -115,9 +110,13 @@ const MyBookings = () => {
       setError(null);
       const response = await patient.getAppointments();
       
+      console.log('Raw appointment data:', response.data);
+      
       // Process appointments to ensure times are correctly displayed in local time
       if (Array.isArray(response.data)) {
         response.data = response.data.map(appointment => {
+          console.log(`Processing appointment ${appointment.id}, status: ${appointment.status}`);
+          
           // Primary source: Use DisplayTime field if available - convert to camelCase
           if (appointment.displayTime) {
             appointment.time = appointment.displayTime;
@@ -145,6 +144,7 @@ const MyBookings = () => {
         });
       }
       
+      console.log('Processed appointments:', response.data);
       setAppointments(response.data);
     } catch (err) {
       console.error('Error fetching appointments:', err);
@@ -155,53 +155,22 @@ const MyBookings = () => {
   };
 
   // Filter bookings based on status
-  const bookings = statusFilter === 'all' 
-    ? appointments 
-    : appointments.filter(booking => booking.status.toLowerCase() === statusFilter);
+  const bookings = appointments.filter(booking => {
+    if (statusFilter === 'all') return true;
+    
+    const statusStr = String(booking.status).toLowerCase();
+    switch (statusFilter) {
+      case 'scheduled':
+        return statusStr === 'scheduled' || statusStr === '0';
+      case 'completed':
+        return statusStr === 'completed' || statusStr === '1';
+      case 'cancelled':
+        return statusStr === 'cancelled' || statusStr === '2';
+      default:
+        return true;
+    }
+  });
   
-  // Generate dates for the next 7 days (for rescheduling)
-  useEffect(() => {
-    if (showRescheduleModal) {
-      const dates = [];
-      const today = new Date();
-      
-      for (let i = 1; i <= 7; i++) {
-        const date = new Date();
-        date.setDate(today.getDate() + i);
-        dates.push(date.toISOString().split('T')[0]);
-      }
-      
-      setAvailableDates(dates);
-    }
-  }, [showRescheduleModal]);
-
-  // Generate time slots for selected date (for rescheduling)
-  useEffect(() => {
-    if (selectedDate) {
-      // Generate mock time slots
-      const morningSlots = ['09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM'];
-      const afternoonSlots = ['01:00 PM', '01:30 PM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM'];
-      const eveningSlots = ['04:00 PM', '04:30 PM', '05:00 PM', '05:30 PM', '06:00 PM'];
-      
-      // Different time slots for different dates to simulate real availability
-      const day = new Date(selectedDate).getDay();
-      
-      let slots = [];
-      
-      if (day === 0) { // Sunday
-        slots = morningSlots.slice(2); // Limited morning hours
-      } else if (day === 6) { // Saturday
-        slots = [...morningSlots, ...afternoonSlots.slice(0, 2)]; // Morning and early afternoon
-      } else if (day % 2 === 0) { // Even weekdays
-        slots = [...morningSlots, ...afternoonSlots, ...eveningSlots];
-      } else { // Odd weekdays
-        slots = [...morningSlots.slice(1), ...afternoonSlots, ...eveningSlots.slice(0, 3)];
-      }
-      
-      setAvailableTimeSlots(slots);
-    }
-  }, [selectedDate]);
-
   // Get status class for styling
   const getStatusClass = (status) => {
     switch(status) {
@@ -226,50 +195,42 @@ const MyBookings = () => {
     navigate(`/patient/book-appointments?reschedule=${appointmentId}`);
   };
   
-  // Handle date selection for rescheduling
-  const handleDateSelect = (date) => {
-    setSelectedDate(date);
-    setSelectedTime('');
-  };
-  
-  // Handle time selection for rescheduling
-  const handleTimeSelect = (time) => {
-    setSelectedTime(time);
-  };
-  
-  // Confirm rescheduling
-  const confirmReschedule = () => {
-    if (!selectedDate || !selectedTime) {
-      return;
-    }
-    
-    // Update the appointment in our mock data
-    const updatedBookings = appointments.map(booking => {
-      if (booking.id === selectedAppointment.id) {
-        return {
-          ...booking,
-          date: selectedDate,
-          time: selectedTime
-        };
-      }
-      return booking;
-    });
-    
-    setAppointments(updatedBookings);
-    setShowRescheduleModal(false);
-    
-    // Show success message
-    alert(`Appointment successfully rescheduled to ${formatDate(selectedDate)} at ${selectedTime}`);
-  };
-  
   // Handle cancel appointment
   const handleCancel = async (appointmentId) => {
     if (window.confirm('Are you sure you want to cancel this appointment?')) {
       try {
         setLoading(true);
         setError(null);
+        
+        // Call the API to cancel the appointment
         await patient.cancelAppointment(appointmentId);
-        await fetchAppointments(); // Refresh the list
+        
+        // Refresh the appointments list
+        const response = await patient.getAppointments();
+        
+        // Process the appointments data
+        if (Array.isArray(response.data)) {
+          response.data = response.data.map(appointment => {
+            if (appointment.displayTime) {
+              appointment.time = appointment.displayTime;
+            } else if (!appointment.time && (appointment.date || appointment.appointmentDate)) {
+              const dateString = appointment.date || appointment.appointmentDate;
+              const appointmentDate = new Date(dateString);
+              
+              if (!isNaN(appointmentDate.getTime())) {
+                appointment.time = appointmentDate.toLocaleTimeString([], { 
+                  hour: 'numeric', 
+                  minute: '2-digit',
+                  hour12: true 
+                });
+              }
+            }
+            return appointment;
+          });
+        }
+        
+        console.log('Updated appointments after cancellation:', response.data);
+        setAppointments(response.data);
       } catch (err) {
         console.error('Error canceling appointment:', err);
         setError('Failed to cancel appointment. Please try again.');
@@ -286,37 +247,128 @@ const MyBookings = () => {
   };
 
   const getFilteredAppointments = () => {
-    const now = new Date();
-    return appointments.filter(appointment => {
-      const appointmentDate = new Date(appointment.date);
+    if (filter === 'all') {
+      return sortAppointmentsByDate(appointments);
+    }
+    
+    const filtered = appointments.filter(appointment => {
       switch (filter) {
-        case 'upcoming':
-          return appointmentDate >= now;
-        case 'past':
-          return appointmentDate < now;
+        case 'scheduled':
+          return isAppointmentScheduled(appointment.status);
+        case 'completed':
+          return isAppointmentCompleted(appointment.status);
+        case 'cancelled':
+          return isAppointmentCancelled(appointment.status);
         default:
           return true;
       }
     });
+    
+    return sortAppointmentsByDate(filtered);
   };
 
   const getStatusBadgeClass = (status) => {
     // Safely handle undefined or null status
-    if (!status) return '';
+    if (!status && status !== 0) return 'status-scheduled';
     
     // Make sure status is a string
     const statusStr = String(status).toLowerCase();
     
     switch (statusStr) {
       case 'scheduled':
+      case '0':
         return 'status-scheduled';
       case 'completed':
+      case '1':
         return 'status-completed';
       case 'cancelled':
+      case '2':
         return 'status-cancelled';
       default:
-        return '';
+        return 'status-scheduled';
     }
+  };
+
+  // Function to get display status text
+  const getStatusDisplayText = (status) => {
+    if (!status && status !== 0) return 'Scheduled';
+    
+    const statusStr = String(status).toLowerCase();
+    
+    switch (statusStr) {
+      case 'scheduled':
+      case '0':
+        return 'Scheduled';
+      case 'completed':
+      case '1':
+        return 'Completed';
+      case 'cancelled':
+      case '2':
+        return 'Cancelled';
+      default:
+        return 'Scheduled';
+    }
+  };
+
+  // Helper function to check if an appointment is cancelled
+  const isAppointmentCancelled = (status) => {
+    if (!status && status !== 0) return false;
+    const statusStr = String(status).toLowerCase();
+    return statusStr === 'cancelled' || statusStr === '2';
+  };
+
+  // Helper function to check if an appointment is completed
+  const isAppointmentCompleted = (status) => {
+    if (!status && status !== 0) return false;
+    const statusStr = String(status).toLowerCase();
+    return statusStr === 'completed' || statusStr === '1';
+  };
+
+  // Helper function to check if an appointment is scheduled
+  const isAppointmentScheduled = (status) => {
+    if (!status && status !== 0) return true; // Default to scheduled
+    const statusStr = String(status).toLowerCase();
+    return statusStr === 'scheduled' || statusStr === '0';
+  };
+
+  // Function to sort appointments by date
+  const sortAppointmentsByDate = (appointments) => {
+    return [...appointments].sort((a, b) => {
+      // Parse dates for comparison
+      let dateA, dateB;
+
+      try {
+        // Combine date and time for more accurate sorting
+        const dateStrA = a.date + ' ' + (a.displayTime || a.time || '00:00');
+        const dateStrB = b.date + ' ' + (b.displayTime || b.time || '00:00');
+        
+        dateA = new Date(dateStrA);
+        dateB = new Date(dateStrB);
+        
+        // If parsing fails, fall back to just date
+        if (isNaN(dateA.getTime())) {
+          dateA = new Date(a.date);
+        }
+        if (isNaN(dateB.getTime())) {
+          dateB = new Date(b.date);
+        }
+      } catch (e) {
+        // If there's any error, use simple date comparison
+        dateA = new Date(a.date);
+        dateB = new Date(b.date);
+      }
+
+      // For completed or cancelled appointments, we can push them to the end
+      if (isAppointmentCompleted(a.status) && !isAppointmentCompleted(b.status)) {
+        return 1;
+      }
+      if (!isAppointmentCompleted(a.status) && isAppointmentCompleted(b.status)) {
+        return -1;
+      }
+      
+      // Sort by date and time
+      return dateA - dateB;
+    });
   };
 
   if (loading) {
@@ -336,16 +388,22 @@ const MyBookings = () => {
           <h1>My Appointments</h1>
           <div className="filter-controls">
             <button
-              className={filter === 'upcoming' ? 'active' : ''}
-              onClick={() => setFilter('upcoming')}
+              className={filter === 'scheduled' ? 'active' : ''}
+              onClick={() => setFilter('scheduled')}
             >
-              Upcoming
+              Scheduled
             </button>
             <button
-              className={filter === 'past' ? 'active' : ''}
-              onClick={() => setFilter('past')}
+              className={filter === 'completed' ? 'active' : ''}
+              onClick={() => setFilter('completed')}
             >
-              Past
+              Completed
+            </button>
+            <button
+              className={filter === 'cancelled' ? 'active' : ''}
+              onClick={() => setFilter('cancelled')}
+            >
+              Cancelled
             </button>
             <button
               className={filter === 'all' ? 'active' : ''}
@@ -379,7 +437,7 @@ const MyBookings = () => {
                 <div className="appointment-header">
                   <h3>Appointment with Dr. {getDoctorName(appointment.doctor)}</h3>
                   <span className={`status-badge ${getStatusBadgeClass(appointment.status)}`}>
-                    {appointment.status}
+                    {getStatusDisplayText(appointment.status)}
                   </span>
                 </div>
                 <div className="appointment-details">
@@ -396,19 +454,17 @@ const MyBookings = () => {
                     <span className="value">{getSpecialty(appointment.doctor, appointment)}</span>
                   </div>
                   <div className="detail-item">
-                    <span className="label">Type:</span>
-                    <span className="value">{appointment.type || 'Regular'}</span>
+                    <span className="label">Reason:</span>
+                    <span className="value">{appointment.reason || 'Consulting'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Notes:</span>
+                    <span className="value">{appointment.notes || 'None'}</span>
                   </div>
                   
                 </div>
                 <div className="appointment-actions">
-                  {(() => {
-                    // Safely handle undefined or null status
-                    if (!appointment.status) return false;
-                    
-                    // Make sure status is a string and compare
-                    return String(appointment.status).toLowerCase() === 'scheduled';
-                  })() && (
+                  {isAppointmentScheduled(appointment.status) && (
                     <>
                       <button
                         className="reschedule-btn"

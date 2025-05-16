@@ -5,7 +5,6 @@ using HospitalManagement.API.Data;
 using HospitalManagement.API.Models;
 using System.Security.Claims;
 using HospitalManagement.API.DTOs;
-using HospitalManagement.API.Utilities;
 
 namespace HospitalManagement.API.Controllers
 {

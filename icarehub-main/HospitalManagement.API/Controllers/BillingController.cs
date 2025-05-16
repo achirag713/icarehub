@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Authorization;
 using HospitalManagement.API.Data;
 using HospitalManagement.API.Models;
 using System.Security.Claims;
-using HospitalManagement.API.Utilities;
 
 namespace HospitalManagement.API.Controllers
 {

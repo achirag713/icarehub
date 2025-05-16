@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using HospitalManagement.API.Utilities;
 
 namespace HospitalManagement.API.Models
 {
@@ -26,7 +27,7 @@ namespace HospitalManagement.API.Models
         
         public AppointmentStatus Status { get; set; }
         
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = TimeUtility.NowIst();
         public DateTime? UpdatedAt { get; set; }
     }
 

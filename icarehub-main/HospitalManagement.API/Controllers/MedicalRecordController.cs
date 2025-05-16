@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using HospitalManagement.API.Data;
 using HospitalManagement.API.Models;
+using HospitalManagement.API.DTOs;
 using System.Security.Claims;
 using HospitalManagement.API.Utilities;
 
@@ -40,19 +41,19 @@ namespace HospitalManagement.API.Controllers
                 .Include(r => r.Doctor)
                     .ThenInclude(d => d.User)
                 .Where(r => r.PatientId == patientId)
-                .Select(r => new
+                .Select(r => new PatientMedicalRecordDto
                 {
-                    r.Id,
-                    r.RecordDate,
-                    r.Diagnosis,
-                    r.Prescription,
-                    r.LabResults,
-                    r.Notes,
-                    r.FilePath,
-                    Doctor = new
+                    Id = r.Id,
+                    RecordDate = r.RecordDate,
+                    Diagnosis = r.Diagnosis,
+                    Prescription = r.Prescription,
+                    Notes = r.Notes,
+                    FilePath = r.FilePath,
+                    Doctor = new DoctorBasicInfoDto
                     {
-                        r.Doctor.User.Username,
-                        r.Doctor.Specialization
+                        Id = r.Doctor.Id,
+                        Name = r.Doctor.User.Username,
+                        Specialization = r.Doctor.Specialization
                     }
                 })
                 .ToListAsync();
@@ -82,25 +83,21 @@ namespace HospitalManagement.API.Controllers
                 record.Patient.UserId != userId)
                 return Forbid();
 
-            return Ok(new
+            return Ok(new MedicalRecordDto
             {
-                record.Id,
-                record.RecordDate,
-                record.Diagnosis,
-                record.Prescription,
-                record.LabResults,
-                record.Notes,
-                record.FilePath,
-                Doctor = new
-                {
-                    record.Doctor.User.Username,
-                    record.Doctor.Specialization
-                },
-                Patient = new
-                {
-                    record.Patient.User.Username,
-                    record.Patient.PhoneNumber
-                }
+                Id = record.Id,
+                PatientId = record.PatientId,
+                DoctorId = record.DoctorId,
+                RecordDate = record.RecordDate,
+                Diagnosis = record.Diagnosis,
+                Prescription = record.Prescription,
+                LabResults = record.LabResults,
+                Notes = record.Notes,
+                FilePath = record.FilePath,
+                CreatedAt = record.CreatedAt,
+                UpdatedAt = record.UpdatedAt,
+                DoctorName = record.Doctor.User.Username,
+                DoctorSpecialization = record.Doctor.Specialization
             });
         }
 
@@ -108,6 +105,11 @@ namespace HospitalManagement.API.Controllers
         [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> CreateRecord([FromBody] CreateMedicalRecordDto dto)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            
             var doctorId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
             var doctor = await _context.Doctors.FirstOrDefaultAsync(d => d.UserId == doctorId);
 
@@ -124,18 +126,89 @@ namespace HospitalManagement.API.Controllers
                 PatientId = patient.Id,
                 Doctor = doctor,
                 DoctorId = doctor.Id,
-                RecordDate = DateTime.UtcNow,
+                RecordDate = dto.RecordDate != default ? dto.RecordDate : TimeUtility.NowIst(),
                 Diagnosis = dto.Diagnosis,
                 Prescription = dto.Prescription,
-                LabResults = dto.LabResults,
+                LabResults = dto.LabResults ?? string.Empty,
                 Notes = dto.Notes,
                 FilePath = dto.FilePath ?? string.Empty
             };
 
             _context.MedicalRecords.Add(medicalRecord);
             await _context.SaveChangesAsync();
+            
+            // Create a DTO for the response
+            var responseDto = new MedicalRecordDto
+            {
+                Id = medicalRecord.Id,
+                PatientId = medicalRecord.PatientId,
+                DoctorId = medicalRecord.DoctorId,
+                DoctorName = doctor.User.Username,
+                DoctorSpecialization = doctor.Specialization,
+                RecordDate = medicalRecord.RecordDate,
+                Diagnosis = medicalRecord.Diagnosis,
+                Prescription = medicalRecord.Prescription,
+                LabResults = medicalRecord.LabResults,
+                Notes = medicalRecord.Notes,
+                FilePath = medicalRecord.FilePath,
+                CreatedAt = medicalRecord.CreatedAt,
+                UpdatedAt = medicalRecord.UpdatedAt
+            };
 
-            return CreatedAtAction(nameof(GetRecord), new { id = medicalRecord.Id }, medicalRecord);
+            return CreatedAtAction(nameof(GetRecord), new { id = medicalRecord.Id }, responseDto);
+        }
+        
+        [HttpPut("{id}")]
+        [Authorize(Roles = "Doctor")]
+        public async Task<IActionResult> UpdateRecord(int id, [FromBody] UpdateMedicalRecordDto dto)
+        {
+            var record = await _context.MedicalRecords.FindAsync(id);
+            if (record == null)
+                return NotFound("Medical record not found");
+
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+            var doctor = await _context.Doctors.FirstOrDefaultAsync(d => d.UserId == userId);
+            if (doctor == null || record.DoctorId != doctor.Id)
+                return Forbid();
+                
+            // Update only the provided fields
+            if (!string.IsNullOrEmpty(dto.Diagnosis))
+                record.Diagnosis = dto.Diagnosis;
+                
+            if (!string.IsNullOrEmpty(dto.Prescription))
+                record.Prescription = dto.Prescription;
+                
+            if (dto.LabResults != null)
+                record.LabResults = dto.LabResults;
+                
+            if (dto.Notes != null)
+                record.Notes = dto.Notes;
+                
+            if (dto.FilePath != null)
+                record.FilePath = dto.FilePath;
+                
+            record.UpdatedAt = DateTime.UtcNow;
+            
+            await _context.SaveChangesAsync();
+            
+            var responseDto = new MedicalRecordDto
+            {
+                Id = record.Id,
+                PatientId = record.PatientId,
+                DoctorId = record.DoctorId,
+                RecordDate = record.RecordDate,
+                Diagnosis = record.Diagnosis,
+                Prescription = record.Prescription,
+                LabResults = record.LabResults,
+                Notes = record.Notes,
+                FilePath = record.FilePath,
+                CreatedAt = record.CreatedAt,
+                UpdatedAt = record.UpdatedAt,
+                DoctorName = doctor.User.Username,
+                DoctorSpecialization = doctor.Specialization
+            };
+
+            return Ok(responseDto);
         }
 
         [HttpPost("upload")]
@@ -220,6 +293,21 @@ namespace HospitalManagement.API.Controllers
                 .Include(r => r.Patient)
                 .Where(r => r.PatientId == patient.Id)
                 .OrderByDescending(r => r.RecordDate)
+                .Select(r => new PatientMedicalRecordDto
+                {
+                    Id = r.Id,
+                    RecordDate = r.RecordDate,
+                    Diagnosis = r.Diagnosis,
+                    Prescription = r.Prescription,
+                    Notes = r.Notes,
+                    FilePath = r.FilePath,
+                    Doctor = new DoctorBasicInfoDto
+                    {
+                        Id = r.Doctor.Id,
+                        Name = r.Doctor.User.Username,
+                        Specialization = r.Doctor.Specialization
+                    }
+                })
                 .ToListAsync();
 
             return Ok(records);
@@ -313,15 +401,5 @@ namespace HospitalManagement.API.Controllers
 
             return Ok(labResult);
         }
-    }
-
-    public class CreateMedicalRecordDto
-    {
-        public int PatientId { get; set; }
-        public string Diagnosis { get; set; }
-        public string Prescription { get; set; }
-        public string LabResults { get; set; }
-        public string Notes { get; set; }
-        public string FilePath { get; set; }
     }
 } 

@@ -230,6 +230,21 @@
   font-weight: 500;
 }
 
+.appointment-status.status-scheduled {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.appointment-status.status-completed {
+  background-color: #e8f5e9;
+  color: #388e3c;
+}
+
+.appointment-status.status-cancelled {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
 .appointment-time {
   display: flex;
   margin-bottom: 1.5rem;
@@ -370,6 +385,22 @@
 .metric-date {
   font-size: 0.75rem;
   color: #888;
+}
+
+/* Status Badge Styles */
+.status-scheduled {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.status-completed {
+  background-color: #e8f5e9;
+  color: #388e3c;
+}
+
+.status-cancelled {
+  background-color: #ffebee;
+  color: #d32f2f;
 }
 
 /* Responsive Styles */

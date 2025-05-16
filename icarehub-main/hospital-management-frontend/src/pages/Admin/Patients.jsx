@@ -9,7 +9,6 @@ const AdminPatients = () => {
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isBillModalOpen, setIsBillModalOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({
@@ -20,11 +19,6 @@ const AdminPatients = () => {
     phone: '',
     address: '',
     medicalHistory: ''
-  });
-  const [billData, setBillData] = useState({
-    amount: '',
-    date: new Date().toISOString().split('T')[0],
-    status: 'Pending'
   });
   const [errors, setErrors] = useState({});
 
@@ -47,7 +41,7 @@ const AdminPatients = () => {
   const handleEditPatient = (patient) => {
     setSelectedPatient(patient);
     setFormData({
-      name: patient.name,
+      name: patient.username,
       gender: patient.gender,
       phoneNumber: patient.phoneNumber || '',
       dateOfBirth: patient.dateOfBirth || new Date().toISOString().split('T')[0],
@@ -71,17 +65,6 @@ const AdminPatients = () => {
     }
   };
 
-  const handleUploadBill = (patient) => {
-    setSelectedPatient(patient);
-    setBillData({
-      amount: '',
-      date: new Date().toISOString().split('T')[0],
-      status: 'Pending'
-    });
-    setErrors({});
-    setIsBillModalOpen(true);
-  };
-
   const validateForm = () => {
     const newErrors = {};
     
@@ -95,21 +78,6 @@ const AdminPatients = () => {
     
     if (!formData.dateOfBirth) {
       newErrors.dateOfBirth = 'Date of Birth is required';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const validateBillForm = () => {
-    const newErrors = {};
-    
-    if (!billData.amount || billData.amount <= 0) {
-      newErrors.amount = 'Valid amount is required';
-    }
-    
-    if (!billData.date) {
-      newErrors.date = 'Date is required';
     }
     
     setErrors(newErrors);
@@ -168,69 +136,9 @@ const AdminPatients = () => {
     }
   };
 
-  const handleBillSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateBillForm()) {
-      return;
-    }
-    
-    try {
-      // We'll add a bill for the patient
-      const response = await admin.addBill({
-        patientId: selectedPatient.id,
-        ...billData
-      });
-      
-      const newBill = response.data;
-      
-      setPatients(patients.map(patient => {
-        if (patient.id === selectedPatient.id) {
-          return {
-            ...patient,
-            bills: [...patient.bills, newBill]
-          };
-        }
-        return patient;
-      }));
-      
-      setIsBillModalOpen(false);
-      setSelectedPatient(null);
-    } catch (error) {
-      console.error('Error adding bill:', error);
-      // Show error in UI
-      if (error.response && error.response.data) {
-        setErrors({
-          ...errors,
-          form: error.response.data.message || 'Error adding bill'
-        });
-      } else {
-        setErrors({
-          ...errors,
-          form: 'Error connecting to server'
-        });
-      }
-    }
-  };
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
-  };
-
-  const handleBillChange = (e) => {
-    const { name, value } = e.target;
-    setBillData(prev => ({
       ...prev,
       [name]: value
     }));
@@ -280,36 +188,7 @@ const AdminPatients = () => {
         <p><strong>Phone:</strong> {patient.phoneNumber}</p>
         <p><strong>Address:</strong> {patient.address}</p>
         <p><strong>Medical History:</strong> {patient.medicalHistory}</p>
-        
-      </div>
-      
-      <div className="patient-bills">
-        <h4>Recent Bills</h4>
-        {patient.bills && patient.bills.length > 0 ? (
-          <div className="bills-list">
-            {patient.bills.map(bill => (
-              <div key={bill.id} className="bill-item">
-                <span className="bill-date">{bill.date}</span>
-                <span className="bill-amount">${bill.amount}</span>
-                <span className={`bill-status ${bill.status.toLowerCase()}`}>
-                  {bill.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="no-bills">No bills found</p>
-        )}
-      </div>
-      
-      <div className="patient-footer">
-        <Button 
-          variant="primary" 
-          size="sm"
-          onClick={() => handleUploadBill(patient)}
-        >
-          Upload Bill
-        </Button>
+        <p><strong>Blood Group:</strong> {patient.bloodGroup}</p>
       </div>
     </div>
   );
@@ -417,52 +296,6 @@ const AdminPatients = () => {
     </form>
   );
 
-  const renderBillForm = () => (
-    <form onSubmit={handleBillSubmit} className="bill-form">
-      <div className="form-group">
-        <label htmlFor="amount">Amount ($)</label>
-        <input
-          type="number"
-          id="amount"
-          name="amount"
-          value={billData.amount}
-          onChange={handleBillChange}
-          className={errors.amount ? 'error' : ''}
-          placeholder="Enter bill amount"
-          min="0"
-          step="0.01"
-        />
-        {errors.amount && <div className="error-message">{errors.amount}</div>}
-      </div>
-      
-      <div className="form-group">
-        <label htmlFor="date">Date</label>
-        <input
-          type="date"
-          id="date"
-          name="date"
-          value={billData.date}
-          onChange={handleBillChange}
-          className={errors.date ? 'error' : ''}
-        />
-        {errors.date && <div className="error-message">{errors.date}</div>}
-      </div>
-      
-      <div className="form-group">
-        <label htmlFor="status">Status</label>
-        <select
-          id="status"
-          name="status"
-          value={billData.status}
-          onChange={handleBillChange}
-        >
-          <option value="Pending">Pending</option>
-          <option value="Paid">Paid</option>
-        </select>
-      </div>
-    </form>
-  );
-
   return (
     <AdminLayout>
       <div className="admin-patients">
@@ -519,36 +352,6 @@ const AdminPatients = () => {
         >
           <div className="modal-content">
             {renderPatientForm()}
-          </div>
-        </Modal>
-
-        {/* Upload Bill Modal */}
-        <Modal
-          isOpen={isBillModalOpen}
-          onClose={() => {
-            setIsBillModalOpen(false);
-            setSelectedPatient(null);
-          }}
-          title="Upload Bill"
-          footer={
-            <div className="modal-footer">
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setIsBillModalOpen(false);
-                  setSelectedPatient(null);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button variant="primary" onClick={handleBillSubmit}>
-                Upload Bill
-              </Button>
-            </div>
-          }
-        >
-          <div className="modal-content">
-            {renderBillForm()}
           </div>
         </Modal>
       </div>

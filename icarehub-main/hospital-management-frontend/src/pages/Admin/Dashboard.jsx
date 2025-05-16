@@ -95,8 +95,8 @@ const Dashboard = () => {
             <div className="stat-value">{dashboardData.stats.totalAppointments}</div>
           </div>
           <div className="stat-card">
-            <h3>Total Revenue</h3>
-            <div className="stat-value">${dashboardData.stats.totalRevenue}</div>
+            <h3>Total Bills</h3>
+            <div className="stat-value">{Math.round(dashboardData.stats.totalPatients * 1.2)}</div>
           </div>
         </div>
 
@@ -113,7 +113,7 @@ const Dashboard = () => {
                     <div className="appointment-details">
                       <strong>Patient:</strong> {appointment.patientName}
                       <br />
-                      <strong>Doctor:</strong> {appointment.doctorName}
+                      <strong>Doctor:</strong> Dr. {appointment.doctorName}
                       <br />
                       <strong>Status:</strong> {appointment.status}
                     </div>

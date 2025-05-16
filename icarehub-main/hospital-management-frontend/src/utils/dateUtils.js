@@ -1,14 +1,27 @@
 // Format date to readable string
 export const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
+  if (!dateString) return 'Date not available';
   
   try {
-    // Create a Date object from the input
     const date = new Date(dateString);
     
     // Check if date is valid
     if (isNaN(date.getTime())) {
       console.warn(`Invalid date: ${dateString}`);
+      
+      if (typeof dateString === 'string') {
+        // Try to fix common date string issues
+        const cleanedDateString = dateString.replace(/[^\d-/.: ]/g, '');
+        const date2 = new Date(cleanedDateString);
+        
+        if (!isNaN(date2.getTime())) {
+          return new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          }).format(date2);
+        }
+      }
       return 'Invalid Date';
     }
     
@@ -178,43 +191,4 @@ export const formatCurrency = (amount) => {
     style: 'currency',
     currency: 'USD'
   }).format(amount);
-};
-
-// Combine a date and time into a single date object with proper time component
-export const combineDateAndTime = (dateString, timeString) => {
-  if (!dateString || !timeString) return null;
-  
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) {
-      console.warn('Invalid date provided to combineDateAndTime');
-      return null;
-    }
-    
-    // Parse the time string (format: "10:30 AM" or "14:30")
-    const timeComponents = timeString.match(/(\d+):(\d+)\s*(AM|PM)?/i);
-    if (!timeComponents) {
-      console.warn('Invalid time format provided to combineDateAndTime');
-      return date; // Return just the date if time format is invalid
-    }
-    
-    let hours = parseInt(timeComponents[1]);
-    const minutes = parseInt(timeComponents[2]);
-    const period = timeComponents[3]?.toUpperCase();
-    
-    // Convert to 24-hour format if AM/PM is specified
-    if (period === 'PM' && hours < 12) {
-      hours += 12;
-    } else if (period === 'AM' && hours === 12) {
-      hours = 0;
-    }
-    
-    // Set the time components on the date
-    date.setHours(hours, minutes, 0, 0);
-    
-    return date;
-  } catch (error) {
-    console.error('Error combining date and time:', error);
-    return null;
-  }
 };

@@ -11,10 +11,10 @@ import ProtectedRoute from '../components/ProtectedRoute';
 
 // Admin Pages
 import AdminDashboard from '../pages/Admin/Dashboard';
+import AdminDoctors from '../pages/Admin/Doctors';
 import AdminPatients from '../pages/Admin/Patients';
 import AdminAppointments from '../pages/Admin/Appointments';
 import AdminSettings from '../pages/Admin/Settings';
-import AdminDoctors from '../pages/Admin/Doctors';
 
 // Doctor Pages
 import DoctorDashboard from '../pages/Doctor/Dashboard';

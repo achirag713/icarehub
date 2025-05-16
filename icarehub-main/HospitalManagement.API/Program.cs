@@ -46,6 +46,7 @@ builder.Services.AddAuthorization(options =>
 
 // Register services
 builder.Services.AddScoped<JwtService>();
+builder.Services.AddScoped<AppointmentService>();
 
 // Configure CORS
 builder.Services.AddCors(options =>

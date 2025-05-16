@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import PatientLayout from '../../layouts/PatientLayout';
-import { formatDate, combineDateAndTime } from '../../utils/dateUtils';
+import { formatDate } from '../../utils/dateUtils';
 import { patient } from '../../services/api';
 import './BookAppointments.css';
 import placeholderImage from '../../assets/hms.png'; // Import a placeholder image
@@ -44,6 +44,8 @@ const BookAppointments = () => {
   const [doctors, setDoctors] = useState([]);
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [appointmentToReschedule, setAppointmentToReschedule] = useState(null);
+  const [currentDate] = useState(new Date().toISOString().split('T')[0]); // Today's date for comparison
+  const [existingAppointments, setExistingAppointments] = useState([]); // Store all current appointments
   
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -56,7 +58,87 @@ const BookAppointments = () => {
     } else if (doctorId) {
       fetchDoctorDetails(doctorId);
     }
+    
+    // Fetch all current appointments for the patient to show existing ones
+    fetchCurrentAppointments();
   }, [location.search]);
+  
+  // Fetch all current appointments for the patient
+  const fetchCurrentAppointments = async () => {
+    try {
+      const response = await patient.getAppointments();
+      if (response.data && Array.isArray(response.data)) {
+        // Filter to only scheduled appointments
+        const scheduledAppointments = response.data
+          .filter(apt => apt.status === 'Scheduled' || apt.status === 'scheduled')
+          .map(apt => {
+            // Normalize date format to match the format used in the date picker (YYYY-MM-DD)
+            let normalizedDate = apt.date;
+            let originalDate = apt.date; // Store original date for debugging
+            
+            // Skip if date is missing or invalid
+            if (!apt.date) {
+              return {
+                ...apt,
+                date: null,
+                originalDate: null
+              };
+            }
+            
+            try {
+              // Method 1: Handle ISO format with T separator (2023-01-15T00:00:00.000Z)
+              if (apt.date.includes('T')) {
+                normalizedDate = apt.date.split('T')[0];
+              } 
+              // Method 2: Handle MM/DD/YYYY format
+              else if (apt.date.includes('/')) {
+                const parts = apt.date.split('/');
+                if (parts.length === 3) {
+                  normalizedDate = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+                }
+              }
+              // Method 3: Try to ensure valid YYYY-MM-DD format using Date object
+              const dateObj = new Date(apt.date);
+              if (!isNaN(dateObj.getTime())) {
+                const year = dateObj.getFullYear();
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                
+                // Only override if we can successfully parse it to a valid date
+                const dateFromObj = `${year}-${month}-${day}`;
+                
+                // If our previous normalization didn't work, use this as fallback
+                if (normalizedDate === apt.date) {
+                  normalizedDate = dateFromObj;
+                }
+                
+                // Store the normalized version from Date object for additional comparisons
+                apt.dateObject = dateFromObj;
+              }
+            } catch (e) {
+              console.error(`Error normalizing date for appointment ID ${apt.id}:`, e);
+              // Keep original if there's an error
+              normalizedDate = apt.date;
+            }
+            
+            console.log(`Normalized appointment date: ${apt.date} -> ${normalizedDate}`);
+            
+            return {
+              ...apt,
+              date: normalizedDate,
+              originalDate: originalDate,
+              dateToString: new Date(apt.date).toDateString() // Add date string representation for easy comparison
+            };
+          });
+        
+        setExistingAppointments(scheduledAppointments);
+        console.log('Scheduled appointments with normalized dates:', scheduledAppointments);
+      }
+    } catch (err) {
+      console.error('Error fetching current appointments:', err);
+      // Don't show error to user, this is just extra context
+    }
+  };
 
   useEffect(() => {
     if (selectedDepartment) {
@@ -118,13 +200,20 @@ const BookAppointments = () => {
         const cleanAppointment = {
           id: appointment.id,
           date: appointment.date,
-          time: appointment.time,
+          time: appointment.time || appointment.displayTime,
+          displayTime: appointment.displayTime || appointment.time,
           status: appointment.status,
           reason: appointment.reason,
-          notes: appointment.notes
+          notes: appointment.notes,
+          doctor: appointment.doctor && typeof appointment.doctor === 'object' ? {
+            name: appointment.doctor.name || 'Unknown Doctor',
+            specialization: appointment.doctor.specialization || 'Specialist'
+          } : null
         };
         
         setAppointmentToReschedule(cleanAppointment);
+        setAppointmentReason(appointment.reason || '');
+        setSelectedTime(appointment.time || appointment.displayTime || '');
         
         // Make sure we have a valid doctor object with fallbacks
         if (appointment.doctor && typeof appointment.doctor === 'object') {
@@ -424,13 +513,125 @@ const BookAppointments = () => {
     setAvailableTimeSlots([]);
   };
 
+  // Utility function to compare dates with flexibility for different formats
+  const areDatesEqual = (date1, date2) => {
+    // Handle case when either date is missing
+    if (!date1 || !date2) return false;
+    
+    // Check 1: Direct string comparison (fastest)
+    if (date1 === date2) return true;
+    
+    // Check 2: Split T format (for ISO dates)
+    if (date1.includes('T') && date1.split('T')[0] === date2) return true;
+    if (date2.includes('T') && date2.split('T')[0] === date1) return true;
+    
+    // Check 3: Convert MM/DD/YYYY to YYYY-MM-DD and compare
+    if (date1.includes('/')) {
+      const parts = date1.split('/');
+      if (parts.length === 3) {
+        const reformatted = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+        if (reformatted === date2) return true;
+      }
+    }
+    
+    if (date2.includes('/')) {
+      const parts = date2.split('/');
+      if (parts.length === 3) {
+        const reformatted = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+        if (reformatted === date1) return true;
+      }
+    }
+    
+    // Check 4: Use JavaScript Date objects for the most flexible comparison
+    try {
+      const date1Obj = new Date(date1);
+      const date2Obj = new Date(date2);
+      
+      // Ensure both dates are valid
+      if (!isNaN(date1Obj.getTime()) && !isNaN(date2Obj.getTime())) {
+        // Compare the date parts only (year, month, day), ignoring time
+        return date1Obj.toDateString() === date2Obj.toDateString();
+      }
+    } catch (e) {
+      console.error('Error comparing dates:', e);
+    }
+    
+    return false;
+  };
+
   const handleDateSelect = (date) => {
     setSelectedDate(date);
     setSelectedTime('');
+    
+    // Call debug function to help identify date format issues
+    debugAppointmentDates();
+    
+    // Use our utility function to find matching appointments
+    const appointmentsOnDate = existingAppointments.filter(apt => areDatesEqual(apt.date, date));
+    
+    if (appointmentsOnDate.length > 0) {
+      console.log(`Found ${appointmentsOnDate.length} appointments on ${date} using our enhanced comparison:`, appointmentsOnDate);
+    } else {
+      console.log(`No existing appointments found for date: ${date} using our enhanced comparison`);
+      console.log('All existing appointments:', existingAppointments.map(apt => ({
+        id: apt.id,
+        date: apt.date,
+        originalDate: apt.originalDate,
+        dateToString: apt.dateToString,
+        dateObject: apt.dateObject
+      })));
+    }
   };
 
   const handleTimeSelect = (time) => {
     setSelectedTime(time);
+    
+    // If we have a doctor and date, check availability when time is selected
+    if (selectedDoctor && selectedDate && time) {
+      checkTimeAvailability(time);
+    }
+  };
+  
+  // Function to check if the selected time is available
+  const checkTimeAvailability = async (time) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Get doctor ID
+      const doctorId = selectedDoctor.Id || selectedDoctor.id;
+      if (!doctorId) {
+        setError('Invalid doctor selection');
+        setLoading(false);
+        return;
+      }
+      
+      // Prepare the date
+      const appointmentDate = new Date(selectedDate);
+      appointmentDate.setHours(12, 0, 0, 0); // Noon exactly
+      const appointmentDateISO = appointmentDate.toISOString();
+      
+      // Get the appointmentId if rescheduling
+      const appointmentId = isRescheduling && appointmentToReschedule ? appointmentToReschedule.id : 0;
+      
+      // Call the API to check availability
+      const response = await patient.checkAppointmentAvailability(
+        doctorId, 
+        appointmentDateISO, 
+        time,
+        appointmentId
+      );
+      
+      // If not available, show a warning
+      if (response.data && !response.data.isAvailable) {
+        setError(response.data.message);
+      }
+    } catch (err) {
+      console.error('Error checking availability:', err);
+      // Don't show an error here, as this is just a check
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -457,20 +658,51 @@ const BookAppointments = () => {
       // Save the originally selected time for display
       const displayTime = selectedTime;
 
-      // Use our utility to properly combine date and time
-      const appointmentDate = combineDateAndTime(selectedDate, displayTime);
-      if (!appointmentDate) {
-        setError('Error processing appointment time. Please try again.');
+      // Parse the selected time into hours and minutes
+      const timeParts = selectedTime.match(/(\d+):(\d+)\s*([AP]M)/i);
+      if (!timeParts) {
+        setError("Invalid time format selected");
         setLoading(false);
         return;
       }
+      
+      let hours = parseInt(timeParts[1], 10);
+      const minutes = parseInt(timeParts[2], 10);
+      const isPM = timeParts[3].toUpperCase() === 'PM';
+      
+      // Convert 12-hour format to 24-hour format
+      if (isPM && hours !== 12) {
+        hours += 12;
+      } else if (!isPM && hours === 12) {
+        hours = 0;
+      }
+      
+      // Create the appointment date with the correct time
+      const appointmentDate = new Date(selectedDate);
+      appointmentDate.setHours(hours, minutes, 0, 0);
       
       // Create ISO string for the API
       const appointmentDateISO = appointmentDate.toISOString();
       
       console.log(`Creating appointment for ${selectedDate}`);
       console.log(`User selected time: ${displayTime}`);
-      console.log(`Combined date and time: ${appointmentDateISO}`);
+      console.log(`Using actual time in date: ${appointmentDateISO}`);
+      console.log(`Hours: ${hours}, Minutes: ${minutes}`);
+      
+      // Check availability one more time before submitting
+      const appointmentId = isRescheduling && appointmentToReschedule ? appointmentToReschedule.id : 0;
+      const availabilityResponse = await patient.checkAppointmentAvailability(
+        doctorId, 
+        appointmentDateISO, 
+        displayTime,
+        appointmentId
+      );
+      
+      if (availabilityResponse.data && !availabilityResponse.data.isAvailable) {
+        setError(availabilityResponse.data.message);
+        setLoading(false);
+        return;
+      }
 
       // Create appointment data
       const appointmentData = {
@@ -484,11 +716,20 @@ const BookAppointments = () => {
 
       console.log('Submitting appointment:', appointmentData);
 
-      // Book appointment
-      const response = await patient.bookAppointment(appointmentData);
-      console.log('Booking success:', response);
+      let response;
       
-      setSuccessMessage('Appointment booked successfully!');
+      // If rescheduling, use the reschedule endpoint
+      if (isRescheduling && appointmentToReschedule) {
+        response = await patient.rescheduleAppointment(appointmentToReschedule.id, appointmentData);
+        console.log('Rescheduling success:', response);
+        setSuccessMessage('Appointment rescheduled successfully!');
+      } else {
+        // Otherwise book a new appointment
+        response = await patient.bookAppointment(appointmentData);
+        console.log('Booking success:', response);
+        setSuccessMessage('Appointment booked successfully!');
+      }
+      
       setTimeout(() => {
         navigate('/patient/my-bookings');
       }, 2000);
@@ -518,6 +759,90 @@ const BookAppointments = () => {
     }
   };
 
+  // Add a debug function to help troubleshoot date format issues
+  const debugAppointmentDates = () => {
+    console.log('DEBUG - All Appointments:', existingAppointments);
+    console.log('DEBUG - Current Selected Date:', selectedDate);
+    
+    // Enhanced date comparison checks
+    existingAppointments.forEach(apt => {
+      // Convert dates to JS Date objects for consistent comparison
+      const aptDate = apt.date ? new Date(apt.date) : null;
+      const selDate = selectedDate ? new Date(selectedDate) : null;
+      
+      // Check if valid dates
+      const aptDateValid = aptDate && !isNaN(aptDate.getTime());
+      const selDateValid = selDate && !isNaN(selDate.getTime());
+      
+      // Check for different comparison results
+      const exactMatch = apt.date === selectedDate;
+      const dateObjMatch = aptDateValid && selDateValid ? 
+        aptDate.toDateString() === selDate.toDateString() : false;
+      
+      // Try normalized formats
+      const aptFormatted = aptDateValid ? aptDate.toISOString().split('T')[0] : null;
+      const selFormatted = selDateValid ? selDate.toISOString().split('T')[0] : null;
+      const normalizedMatch = aptFormatted && selFormatted ? aptFormatted === selFormatted : false;
+      
+      // Detailed debug information
+      console.log(`Appointment ID: ${apt.id}, 
+        Date: ${apt.date}, 
+        Original Date: ${apt.originalDate || 'N/A'}, 
+        Exact Match: ${exactMatch ? 'YES' : 'NO'}, 
+        Date Object Match: ${dateObjMatch ? 'YES' : 'NO'}, 
+        Normalized Match: ${normalizedMatch ? 'YES' : 'NO'},
+        JS Conversion: ${aptDateValid ? aptDate.toDateString() : 'INVALID'} vs ${selDateValid ? selDate.toDateString() : 'INVALID'}`);
+    });
+    
+    // Try different matching approaches
+    const exactMatches = existingAppointments.filter(apt => apt.date === selectedDate);
+    console.log(`DEBUG - Exact matches for ${selectedDate}:`, exactMatches);
+    
+    const dateObjMatches = existingAppointments.filter(apt => {
+      const aptDate = apt.date ? new Date(apt.date) : null;
+      const selDate = selectedDate ? new Date(selectedDate) : null;
+      return aptDate && selDate && !isNaN(aptDate.getTime()) && !isNaN(selDate.getTime()) && 
+             aptDate.toDateString() === selDate.toDateString();
+    });
+    console.log(`DEBUG - Date object matches for ${selectedDate}:`, dateObjMatches);
+    
+    // Final determination of matching appointments using our enhanced criteria
+    const matchingAppointments = existingAppointments.filter(apt => {
+      // Try exact match
+      if (apt.date === selectedDate) return true;
+      
+      // Try comparing just the date part (YYYY-MM-DD)
+      if (apt.date) {
+        // Handle format with T separator (ISO)
+        if (apt.date.includes('T')) {
+          const datePart = apt.date.split('T')[0];
+          if (datePart === selectedDate) return true;
+        }
+        
+        // Handle date with slashes
+        if (apt.date.includes('/')) {
+          const parts = apt.date.split('/');
+          // Convert MM/DD/YYYY to YYYY-MM-DD
+          if (parts.length === 3) {
+            const reformatted = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+            if (reformatted === selectedDate) return true;
+          }
+        }
+        
+        // Try comparing just the raw date strings
+        const aptDate = new Date(apt.date);
+        const selectedDateObj = new Date(selectedDate);
+        if (!isNaN(aptDate.getTime()) && !isNaN(selectedDateObj.getTime())) {
+          if (aptDate.toDateString() === selectedDateObj.toDateString()) return true;
+        }
+      }
+      
+      return false;
+    });
+    
+    console.log(`DEBUG - Final matching appointments for ${selectedDate}:`, matchingAppointments);
+  };
+  
   return (
     <PatientLayout>
       <div className="book-appointments-page">
@@ -677,6 +1002,25 @@ const BookAppointments = () => {
                 <div className="step-content">
                   <h2>Choose Date & Time</h2>
                   
+                  {/* Add reschedule alert banner */}
+                  {isRescheduling && (
+                    <div className="mb-5 p-4 rounded-lg bg-amber-50 border border-amber-300">
+                      <div className="flex">
+                        <div className="flex-shrink-0">
+                          <svg className="h-5 w-5 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="ml-3">
+                          <h3 className="text-md font-semibold text-amber-800">You are rescheduling an appointment</h3>
+                          <div className="mt-1 text-sm text-amber-700">
+                            <p>Please select a new date and time for your appointment. Your original appointment will be cancelled once you confirm the new schedule.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   {selectedDoctor ? (
                     <div className="doctor-selected">
                       <div className="doctor-avatar">
@@ -742,23 +1086,117 @@ const BookAppointments = () => {
                       <span className="timezone-notice-text">Note: Appointments can only be booked between 9 AM and 5 PM ({Intl.DateTimeFormat().resolvedOptions().timeZone} timezone)</span>
                     </div>
                     <div className="date-grid">
-                      {availableDates.map((date) => (
-                        <button
-                          key={date}
-                          className={`date-btn ${selectedDate === date ? 'selected' : ''}`}
-                          onClick={() => handleDateSelect(date)}
-                        >
-                          <span className="day">{new Date(date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                          <span className="date">{new Date(date).getDate()}</span>
-                          <span className="month">{new Date(date).toLocaleDateString('en-US', { month: 'short' })}</span>
-                        </button>
-                      ))}
+                      {availableDates.map((date) => {
+                        // Use our utility function to find appointments on this date
+                        const appointmentsOnDate = existingAppointments.filter(apt => areDatesEqual(apt.date, date));
+                        const hasAppointmentOnDate = appointmentsOnDate.length > 0;
+                        
+                        return (
+                          <button
+                            key={date}
+                            className={`date-btn ${selectedDate === date ? 'selected' : ''} ${hasAppointmentOnDate ? 'has-appointment' : ''}`}
+                            onClick={() => handleDateSelect(date)}
+                          >
+                            <span className="day">{new Date(date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                            <span className="date">{new Date(date).getDate()}</span>
+                            <span className="month">{new Date(date).toLocaleDateString('en-US', { month: 'short' })}</span>
+                            {hasAppointmentOnDate && (
+                              <span className="appointment-dot" 
+                                    title={`You have ${appointmentsOnDate.length} appointment(s) on this date`}>
+                                {appointmentsOnDate.length > 1 ? appointmentsOnDate.length : ''}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                   
                   {/* Time Slots Section */}
                   {selectedDate && (
                     <div className="mb-6">
+                      {/* Show current appointment info when rescheduling */}
+                      {isRescheduling && appointmentToReschedule && (
+                        <div className="mb-5 p-4 rounded-lg bg-yellow-50 border border-yellow-300">
+                          <div className="flex items-start">
+                            <div className="flex-shrink-0 mt-0.5">
+                              <svg className="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                            <div className="ml-3">
+                              <h4 className="text-md font-semibold text-yellow-800">Rescheduling Appointment</h4>
+                              <div className="mt-2 text-sm text-yellow-700">
+                                <p className="font-medium">Current appointment details:</p>
+                                <ul className="mt-1 list-disc list-inside pl-2">
+                                  <li>Date: {formatDate(appointmentToReschedule.date)}</li>
+                                  <li>Time: {appointmentToReschedule.time || appointmentToReschedule.displayTime}</li>
+                                  <li>Doctor: {appointmentToReschedule.doctor?.name || 'Unknown Doctor'}</li>
+                                  <li>Reason: {appointmentToReschedule.reason || 'Not specified'}</li>
+                                </ul>
+                                <p className="mt-2">Please select a new date and time below.</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Show same-day appointment notification */}
+                      {selectedDate === currentDate && (
+                        <div className="mb-5 p-4 rounded-lg bg-blue-50 border border-blue-300">
+                          <div className="flex items-start">
+                            <div className="flex-shrink-0 mt-0.5">
+                              <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                            </div>
+                            <div className="ml-3">
+                              <h4 className="text-md font-semibold text-blue-800">Same-day Appointment</h4>
+                              <div className="mt-1 text-sm text-blue-700">
+                                <p>You are booking an appointment for today. Please select an available time slot below.</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Show existing appointments for the selected date */}
+                      {!isRescheduling && selectedDate && (() => {
+                        // Find appointments for the selected date using our utility function
+                        const matchingAppointments = existingAppointments.filter(apt => areDatesEqual(apt.date, selectedDate));
+                          
+                        // Log for debugging
+                        console.log(`Found ${matchingAppointments.length} appointments matching ${selectedDate}`, matchingAppointments);
+                          
+                        return matchingAppointments.length > 0 ? (
+                          <div className="mb-5 p-4 rounded-lg bg-green-50 border border-green-300">
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0 mt-0.5">
+                                <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <div className="ml-3 w-full">
+                                <h4 className="text-md font-semibold text-green-800">You already have appointment(s) on this date</h4>
+                                <div className="mt-2 text-sm text-green-700">
+                                  <p className="font-medium">Your existing appointment(s) on {formatDate(selectedDate)}:</p>
+                                  <div className="mt-3 space-y-3">
+                                    {matchingAppointments.map((apt, index) => (
+                                      <div key={index} className="p-3 bg-white rounded-md border border-green-200 shadow-sm">
+                                        <p className="font-medium text-green-800">{apt.time || apt.displayTime || 'Time not specified'}</p>
+                                        <p><strong>Doctor:</strong> {apt.doctor?.name || 'Not specified'}</p>
+                                        <p><strong>Department:</strong> {apt.doctor?.specialization || apt.specialty || 'Not specified'}</p>
+                                        <p><strong>Reason:</strong> {apt.reason || 'Not specified'}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
+
                       <h3 className="text-lg font-semibold mb-4">Available Time Slots</h3>
                       {loading ? (
                         <div className="flex justify-center">
@@ -801,14 +1239,21 @@ const BookAppointments = () => {
                           {availableTimeSlots.map((time, index) => (
                             <button
                               key={index}
-                              onClick={() => setSelectedTime(time)}
+                              onClick={() => handleTimeSelect(time)}
                               className={`p-3 text-center rounded-lg border ${
                                 selectedTime === time
-                                  ? 'bg-blue-50 border-blue-500 text-blue-700'
+                                  ? error
+                                    ? 'bg-red-50 border-red-500 text-red-700'
+                                    : 'bg-blue-50 border-blue-500 text-blue-700'
                                   : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
                               }`}
                             >
                               {time}
+                              {selectedTime === time && error && (
+                                <div className="text-xs text-red-600 mt-1">
+                                  Not available
+                                </div>
+                              )}
                             </button>
                           ))}
                         </div>
@@ -885,16 +1330,7 @@ const BookAppointments = () => {
                           ></textarea>
                         </div>
 
-                        <div className="form-group">
-                          <label htmlFor="appointmentNotes">Additional Notes (Optional)</label>
-                          <textarea
-                            id="appointmentNotes"
-                            value={appointmentNotes}
-                            onChange={(e) => setAppointmentNotes(e.target.value)}
-                            placeholder="Any additional information for the doctor"
-                            rows="3"
-                          ></textarea>
-                        </div>
+    
                         
                         <div className="payment-info">
                           <p>Payment will be collected at the hospital during your visit.</p>

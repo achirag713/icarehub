@@ -499,6 +499,102 @@
     font-size: 1.1rem;
   }
   
+  /* Current appointment notification styling */
+.current-appointment-notice {
+  margin-bottom: 20px;
+  padding: 15px;
+  border-radius: 8px;
+  background-color: #fffaf0;
+  border: 1px solid #ffefd5;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.current-appointment-notice h4 {
+  color: #d97706;
+  font-weight: 600;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+}
+
+.current-appointment-notice h4 svg {
+  margin-right: 8px;
+}
+
+.current-appointment-details {
+  background: white;
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 10px;
+}
+
+.current-appointment-details ul {
+  margin: 8px 0;
+}
+
+.current-appointment-details li {
+  margin-bottom: 5px;
+  color: #4b5563;
+  font-size: 0.95rem;
+}
+
+/* Same day appointment notice */
+.same-day-notice {
+  margin-bottom: 20px;
+  padding: 15px;
+  border-radius: 8px;
+  background-color: #e1f5fe;
+  border: 1px solid #b3e5fc;
+  color: #0277bd;
+  display: flex;
+  align-items: flex-start;
+}
+
+.same-day-notice-icon {
+  margin-right: 12px;
+  flex-shrink: 0;
+  color: #0288d1;
+}
+
+.same-day-notice-content h4 {
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.same-day-notice-content p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* Appointment indicator on date buttons */
+.date-btn.has-appointment {
+  position: relative;
+  border-color: #10b981;
+}
+
+.appointment-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #10b981;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px white;
+  z-index: 2;
+}
+
+/* Date button hover states for appointments */
+.date-btn.has-appointment:hover {
+  background-color: #d1fae5;
+}
+
   @media (max-width: 768px) {
     .booking-steps {
       padding: 1.5rem 1rem;
